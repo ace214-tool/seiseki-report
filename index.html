@@ -11,18 +11,18 @@
   :root { --bg:#f7f6f2; --card:#fff; --line:#e3e0d8; --text:#222; --sub:#777; --ok:#1e7f4f; --ng:#c0392b; --accent:#2b5d8a; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font-family:"Noto Sans JP",sans-serif; font-size:14px; }
-  .wrap { max-width:1400px; margin:0 auto; padding:20px 24px 60px; }
+  .wrap { padding:20px 24px 60px; }
   h1 { font-size:18px; font-weight:700; margin:0 0 14px; }
   .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
   button { font-family:inherit; font-size:14px; padding:9px 18px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
   button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
   button:disabled { opacity:.5; cursor:default; }
   #status { color:var(--sub); font-size:13px; }
-  #report { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:20px 24px; display:none; }
+  #report { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:20px 24px; display:none; width:max-content; min-width:900px; }
   .head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
   .head .t { font-size:16px; font-weight:700; }
   .head .d { color:var(--sub); font-size:12px; }
-  .checks { border:1px solid var(--line); border-radius:6px; padding:10px 14px; margin-bottom:18px; font-size:13px; }
+  .checks { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px; }
   .checks .row { display:flex; gap:10px; align-items:baseline; padding:3px 0; }
   .checks .badge { flex:none; width:38px; text-align:center; font-weight:700; border-radius:4px; padding:1px 0; font-size:12px; }
   .badge.ok { background:#e5f4ec; color:var(--ok); }
@@ -49,12 +49,13 @@
     <span id="status"></span>
   </div>
 
+  <div class="checks" id="checks" style="display:none"></div>
+
   <div id="report">
     <div class="head">
       <div class="t" id="rTitle"></div>
       <div class="d" id="rDate"></div>
     </div>
-    <div class="checks" id="checks"></div>
     <div id="sheets"></div>
   </div>
 </div>
@@ -77,6 +78,7 @@ async function fetchReport() {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || '不明なエラー');
     render(data);
+    $('checks').style.display = 'block';
     $('report').style.display = 'block';
     $('btnCopy').disabled = false;
     $('status').textContent = '取得完了 ' + data.generatedAt;
@@ -87,7 +89,9 @@ async function fetchReport() {
 }
 
 function render(d) {
-  $('rTitle').textContent = '成績レポート ' + d.thisMonth.label;
+  const dm = d.generatedAt.match(/(\d{4})\/(\d{2})\/(\d{2})/);
+  const today = dm ? `${dm[1]}年${Number(dm[2])}月${Number(dm[3])}日` : d.thisMonth.label;
+  $('rTitle').textContent = 'MEO商談進捗 ' + today;
   $('rDate').textContent = '取得 ' + d.generatedAt;
 
   // ---- チェック ----
@@ -184,7 +188,9 @@ function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 async function shot(mode) {
   $('status').textContent = 'スクショ作成中…';
   try {
-    const canvas = await html2canvas($('report'), { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const el = $('report');
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true,
+      width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth + 100 });
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     if (mode === 'copy') {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
