@@ -5,7 +5,8 @@ const CONFIG = {
   // ① 成績管理表
   SEISEKI_ID: '19oAUC2liN34I5QwQ72l60e1puD-VR547MBLEjVE2O1k',
   SEISEKI_SHEETS: ['アポ', '前確', '商談'],
-  MONTH_CELL: 'D1',           // 年月が入っているセル
+  SEISEKI_START_COL: 2,       // B列から（A列は含めない）
+  MONTH_ROW: 1,               // この行から「2026年9月」形式のセルを自動で探す
   TOTAL_LABEL: '合計',        // B列でこの文字がある行を最終行＆売上合計行とみなす
 
   // ② 勤怠管理（月ごとに別ファイル。ファイル名で自動検索）
@@ -13,7 +14,7 @@ const CONFIG = {
   KINTAI_SHEET: '稼働時間',
   KINTAI_SALES_LABEL: '当月売上',   // このセルの右隣を当月売上とみなす
   KINTAI_END_LABEL: '時間単価',     // A列でこの文字がある行までを画像範囲にする
-  KINTAI_LAST_COL: 8                // H列まで（備考含む）
+  KINTAI_LAST_COL: 6                // F列まで（A1:F17）
 };
 
 function doGet(e) {
@@ -49,12 +50,14 @@ function buildReport() {
     header.forEach((v, i) => { if (String(v).trim() !== '') endCol = i + 1; });
     if (!endCol) endCol = sh.getLastColumn();
 
-    const block = grabRange(sh, 1, 1, endRow, endCol);
+    const sc = CONFIG.SEISEKI_START_COL;
+    const block = grabRange(sh, 1, sc, endRow, endCol - sc + 1);
+    const month = findMonth(sh, endCol);
     return Object.assign({
       name: name,
       spreadsheetName: ss.getName(),
       url: ss.getUrl() + '#gid=' + sh.getSheetId(),
-      monthLabel: sh.getRange(CONFIG.MONTH_CELL).getDisplayValue(),
+      monthLabel: month.label, monthCell: month.cell,
       totalSales: Number(sh.getRange(endRow, 3).getValue()) || 0,
       totalCell: 'C' + endRow
     }, block);
@@ -99,6 +102,18 @@ function buildReport() {
   };
 }
 
+// 1行目から「YYYY年M月」形式のセルを探す
+function findMonth(sh, endCol) {
+  const vals = sh.getRange(CONFIG.MONTH_ROW, 1, 1, Math.max(endCol, sh.getLastColumn())).getDisplayValues()[0];
+  for (let i = 0; i < vals.length; i++) {
+    if (/\d{4}\s*年\s*\d{1,2}\s*月/.test(vals[i])) {
+      return { label: vals[i].match(/\d{4}\s*年\s*\d{1,2}\s*月/)[0].replace(/\s/g, ''),
+               cell: sh.getRange(CONFIG.MONTH_ROW, i + 1).getA1Notation() };
+    }
+  }
+  return { label: '', cell: '' };
+}
+
 // 指定範囲の値と見た目（背景・文字色・太字・サイズ・寄せ・結合・列幅・行高）をまとめて取る
 function grabRange(sh, r, c, nr, nc) {
   const range = sh.getRange(r, c, nr, nc);
@@ -117,6 +132,8 @@ function grabRange(sh, r, c, nr, nc) {
     fontWeights: range.getFontWeights(),
     fontSizes: range.getFontSizes(),
     hAlign: range.getHorizontalAlignments(),
+    vAlign: range.getVerticalAlignments(),
+    wraps: range.getWrapStrategies().map(r => r.map(w => String(w))),
     merges: merges, colWidths: colWidths, rowHeights: rowHeights
   };
 }
