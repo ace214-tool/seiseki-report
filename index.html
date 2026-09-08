@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>成績レポート</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -34,7 +35,9 @@
   .sheet .label a { color:var(--accent); font-size:12px; word-break:break-all; }
   .sheet .err { color:var(--ng); font-weight:700; }
   table.gs { border-collapse:collapse; table-layout:fixed; font-family:Arial,"Noto Sans JP",sans-serif; }
-  table.gs td { border:1px solid #d9d9d9; padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:clip; line-height:1.2; }
+  table.gs td { border:1px solid #d9d9d9; padding:0 3px; white-space:pre; overflow:hidden; line-height:1.25; vertical-align:bottom; }
+  table.gs td.wrap { white-space:pre-wrap; word-break:break-all; }
+  table.gs td.spill { overflow:visible; position:relative; z-index:1; }
 </style>
 </head>
 <body>
@@ -99,7 +102,7 @@ function render(d) {
     if (s.error) { rows.push(['ng', `① ${s.name}：${s.error}`]); allOk = false; return; }
     const ok = norm(s.monthLabel) === norm(d.thisMonth.label);
     if (!ok) allOk = false;
-    rows.push([ok ? 'ok' : 'ng', `① ${s.name} D1 の年月「${s.monthLabel}」${ok ? '＝ 今月' : '≠ 今月（' + d.thisMonth.label + '）'}`]);
+    rows.push([ok ? 'ok' : 'ng', `① ${s.name} ${s.monthCell || '1行目'} の年月「${s.monthLabel || '（見つからず）'}」${ok ? '＝ 今月' : '≠ 今月（' + d.thisMonth.label + '）'}`]);
   });
   if (d.kintai.error) { rows.push(['ng', `② ${d.kintai.spreadsheetName}：${d.kintai.error}`]); allOk = false; }
   else if (!d.kintai.salesLabelFound) { rows.push(['ng', `② 「当月売上」のセルが見つかりません`]); allOk = false; }
@@ -163,6 +166,15 @@ function buildTable(s) {
       td.style.fontSize = Math.round(s.fontSizes[r][c] * 1.33) + 'px';
       const a = s.hAlign[r][c];
       td.style.textAlign = a === 'general' ? (/^[\d,.\-%¥]+$/.test(s.display[r][c]) ? 'right' : 'left') : a;
+      const va = (s.vAlign && s.vAlign[r][c]) || 'bottom';
+      td.style.verticalAlign = va === 'middle' ? 'middle' : va;
+      const w = (s.wraps && s.wraps[r][c]) || 'OVERFLOW';
+      if (w === 'WRAP') td.classList.add('wrap');
+      else if (w === 'OVERFLOW' && s.display[r][c] !== '') {
+        // 右隣が空ならスプシ同様にはみ出して表示
+        let nc = c + (m ? m.cols : 1);
+        if (nc < s.cols && String(s.display[r][nc]).trim() === '') td.classList.add('spill');
+      }
       tr.appendChild(td);
     }
     t.appendChild(tr);
